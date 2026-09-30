@@ -10,18 +10,26 @@ export async function decodeImage(file) {
 }
 
 /**
- * Downsample a bitmap into a `cols` x `rows` grid of `#rrggbb` strings by
- * area averaging: draw the bitmap, letterboxed to 16:9, into a canvas of
- * exactly that many pixels with high-quality smoothing, then read every
- * pixel back. The browser's own resampler does the averaging; nothing here
- * touches individual source pixels.
- * @param {ImageBitmap} bitmap decoded image
+ * Downsample a bitmap (or any other `drawImage`-able source, e.g. a
+ * `<video>` element mid-playback) into a `cols` x `rows` grid of `#rrggbb`
+ * strings by area averaging: draw the source, letterboxed to 16:9, into a
+ * canvas of exactly that many pixels with high-quality smoothing, then read
+ * every pixel back. The browser's own resampler does the averaging; nothing
+ * here touches individual source pixels.
+ *
+ * `srcWidth`/`srcHeight` default to `bitmap.width`/`bitmap.height` (true for
+ * an `ImageBitmap`) but are accepted explicitly because a `<video>` element
+ * exposes its frame size as `videoWidth`/`videoHeight` instead — the video
+ * demo passes those in rather than this module reaching into a DOM element.
+ * @param {CanvasImageSource} bitmap decoded image or other drawable source
  * @param {number} cols grid columns (pixel width of the target frame)
  * @param {number} rows grid rows (pixel height of the target frame)
  * @param {string} bg CSS colour painted into the letterbox bars
+ * @param {number} [srcWidth] source pixel width, if not `bitmap.width`
+ * @param {number} [srcHeight] source pixel height, if not `bitmap.height`
  * @returns {string[][]} rows of `#rrggbb` strings, `rows` long, `cols` wide
  */
-export function downsample(bitmap, cols, rows, bg) {
+export function downsample(bitmap, cols, rows, bg, srcWidth = bitmap.width, srcHeight = bitmap.height) {
   const canvas = new OffscreenCanvas(cols, rows);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.imageSmoothingEnabled = true;
@@ -30,7 +38,7 @@ export function downsample(bitmap, cols, rows, bg) {
   ctx.fillRect(0, 0, cols, rows);
 
   const targetAspect = cols / rows; // always 16:9 for our three levels
-  const srcAspect = bitmap.width / bitmap.height;
+  const srcAspect = srcWidth / srcHeight;
   let dw = cols, dh = rows, dx = 0, dy = 0;
   if (srcAspect > targetAspect) { dh = cols / srcAspect; dy = (rows - dh) / 2; }
   else if (srcAspect < targetAspect) { dw = rows * srcAspect; dx = (cols - dw) / 2; }

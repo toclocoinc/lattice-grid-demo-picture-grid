@@ -8,6 +8,10 @@ nothing is ever uploaded.
 
 Live: https://toclocoinc.github.io/lattice-grid-demo-picture-grid/
 
+A second page, [`video.html`](https://toclocoinc.github.io/lattice-grid-demo-picture-grid/video.html),
+does the same for a dropped MP4/WebM, sampling frames instead of decoding one image — see
+[Video grid](#video-grid-videohtml) below.
+
 ## What it proves
 
 - **A cell's colour is the grid's own `cell.style`, computed from the value.**
@@ -103,6 +107,40 @@ the one that decides the mp4 follow-on and is immune to that noise: it
 stays well under 300 ms per full-grid replacement at every level checked,
 including the largest.
 
+## Video grid (`video.html`)
+
+The same idea, driven by a video instead of a still image: drop an MP4/WebM, and every sampled
+frame is downsampled the same way (`image.js`'s `downsample`, extended to take an explicit
+`srcWidth`/`srcHeight` for a `<video>` element rather than duplicating the letterbox/area-average
+logic) and pushed through the grid's own `rows.queue()` — the one grid instance is created once
+and never recreated, exactly as `app.js` does for images.
+
+Owner direction (2026-09-29) capped video at the two levels the picture grid's own measured
+recolour cost (`render:done` `phases.totalMs`) supports a usable frame rate at: **64 × 36**
+(17.3 ms/replacement measured on the picture grid &rarr; 24 fps target, capped 30) and
+**128 × 72** (64.7 ms/replacement &rarr; 12 fps target). **256 × 144** (261 ms/replacement) is
+disabled for video and says why on the page: at that cost a single replacement already exceeds
+the 24fps/12fps frame budgets several times over, so it cannot hold a usable video frame rate —
+it stays available on the picture-grid page, where a one-off measurement, not a sustained rate,
+is what matters.
+
+Frames are sampled via `requestVideoFrameCallback` (falling back to `requestAnimationFrame`
+where unsupported) and are **dropped, never queued**, whenever the previous grid update hasn't
+finished (`render:done` not yet fired) or the level's frame-interval hasn't elapsed — never more
+than one replacement in flight. The readout reports the fps the grid actually achieves (rolling
+1s), `phases.totalMs` per frame, and the dropped-frame count; if achieved fps sits more than 20%
+under the level's cap for 2 continuous seconds, the readout says so explicitly (e.g. "grid at
+9 fps, capped 12") instead of just showing the low number quietly.
+
+### Sample clip
+
+`sample.webm` (~543 KB, 10s, 640×360): a synthetic animation of six bouncing colour-gradient
+blobs over a slowly hue-shifting dark background, generated for this demo by Tocloco Inc — no
+external source, no personal data, owned outright. There is no `ffmpeg` on the build box, so it
+was produced by drawing the animation to an HTML `<canvas>` and recording it with
+`MediaRecorder`/`canvas.captureStream()` inside headless Chrome (`video/webm;codecs=vp9`,
+~900 kbps) — a one-off local generation script, not shipped in this repository.
+
 ## Known limitations / findings
 
 - The hover readout originally read `e.row.y` for the row coordinate,
@@ -120,6 +158,6 @@ source, no personal data, owned outright.
 
 ## Demo code licence
 
-MIT — see [LICENSE](LICENSE). Covers `index.html`, `app.js` and `image.js`
-in this repository; it does not relicense Lattice Grid itself, loaded from
-the CDN under its own commercial demo licence.
+MIT — see [LICENSE](LICENSE). Covers `index.html`, `app.js`, `image.js`, `video.html` and
+`video.js` in this repository; it does not relicense Lattice Grid itself, loaded from the CDN
+under its own commercial demo licence.

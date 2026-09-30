@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Picture grid: a PNG/JPG recreated from cell backgrounds | Lattice Grid</title>
+<title>Video grid: an MP4/WebM played through cell background colours | Lattice Grid</title>
 <link rel="icon" href="data:,">
 <script>
   if (new URLSearchParams(location.search).get('theme') === 'dark') document.documentElement.dataset.theme = 'dark';
@@ -15,7 +15,7 @@
   const LIB = LOCAL ? 'vendor/' : 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.79.0/';
   document.write('<link rel="stylesheet" href="' + LIB + 'lattice-grid.min.css">');
   for (const file of ['lattice-grid.min.js']) {
-    document.write('<script src="' + LIB + file + '?v=20260929a-1567"><' + '/script>');
+    document.write('<script src="' + LIB + file + '?v=20260930a-1568"><' + '/script>');
   }
 </script>
 <style>
@@ -27,6 +27,7 @@
   .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0; font-size: 12px; }
   .bar button { font: inherit; padding: 3px 10px; }
   .bar label { display: inline-flex; align-items: center; gap: 4px; }
+  .bar label.disabled { color: var(--lattice-foreground-muted, #5b6570); }
   #status { color: var(--lattice-foreground-muted, #5b6570); min-height: 1.2em; }
   .layout { display: grid; grid-template-columns: 3fr 1fr; gap: 8px; padding: 8px 14px; }
   .panel { border: 1px solid var(--line, #dfe3e6); border-radius: 6px; display: flex; flex-direction: column; min-height: 0; }
@@ -34,13 +35,9 @@
                  color: var(--lattice-foreground-muted, #5b6570); padding: 5px 8px; border-bottom: 1px solid var(--line, #dfe3e6); }
   #grid { height: 620px; }
   .side { display: flex; flex-direction: column; gap: 8px; }
-  #readout { padding: 8px; font: 12px ui-monospace, monospace; min-height: 1.4em; }
-  #palette { padding: 6px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11.5px; }
-  .tile { display: flex; align-items: center; gap: 5px; padding: 2px 0; }
-  .sw { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--line, #dfe3e6); flex: none; }
+  #readout { padding: 8px; font: 12px ui-monospace, monospace; min-height: 5.5em; white-space: pre-line; }
+  #readout.warn { color: #b45309; }
   .foot { padding: 0 14px 14px; }
-  #measure-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  #measure-table th, #measure-table td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line, #dfe3e6); }
   .note { font-size: 11.5px; color: var(--lattice-foreground-muted, #5b6570); margin: 6px 0 0; }
   .dropzone { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
               text-align: center; padding: 2rem; background: rgba(255, 255, 255, .96); }
@@ -52,51 +49,52 @@
 </head>
 <body>
 <header>
-  <h1>Picture grid</h1>
-  <p class="lede">Drop a PNG or JPG. It is decoded and downsampled entirely in this tab
-    (<code>createImageBitmap</code> + an <code>OffscreenCanvas</code>) &mdash; nothing is ever uploaded &mdash;
-    and the grid recreates it from nothing but each cell's own background colour.</p>
+  <h1>Video grid</h1>
+  <p class="lede">Drop an MP4 or WebM. It plays, muted and hidden, entirely in this tab (an object URL &mdash;
+    nothing is ever uploaded) and every sampled frame is downsampled the same way the
+    <a href="index.html">picture grid</a> downsamples a still image, then pushed into the grid through its
+    ordinary row-update path. A 10&ndash;20s clip, 720p or smaller, samples fastest.</p>
   <div class="bar">
-    <button type="button" id="pick">Drop an image, or choose one&hellip;</button>
-    <label><input type="radio" name="level" value="0"> 64 &times; 36</label>
-    <label><input type="radio" name="level" value="1" checked> 128 &times; 72</label>
-    <label><input type="radio" name="level" value="2"> 256 &times; 144</label>
+    <button type="button" id="pick">Drop a video, or choose one&hellip;</button>
+    <button type="button" id="play">Play</button>
+    <label><input type="radio" name="level" value="0" checked> 64 &times; 36 (24 fps target)</label>
+    <label><input type="radio" name="level" value="1"> 128 &times; 72 (12 fps target)</label>
+    <label class="disabled">256 &times; 144 &mdash; disabled for video (too slow: ~261 ms/frame measured on the
+      picture grid, far above any usable frame budget)</label>
+    <label><input type="checkbox" id="loop" checked> Loop</label>
   </div>
   <div id="status" role="status" aria-live="polite"></div>
 </header>
 
 <div class="layout">
-  <div class="panel"><div class="panel__head">Grid &mdash; one column per pixel</div>
+  <div class="panel"><div class="panel__head">Grid &mdash; one column per pixel, one push per sampled frame</div>
     <div id="grid"></div></div>
   <div class="side">
-    <div class="panel"><div class="panel__head">Hover readout</div>
-      <div id="readout">Hover a cell&hellip;</div></div>
-    <div class="panel"><div class="panel__head">Palette (top 8, quantised)</div>
-      <div id="palette"></div></div>
+    <div class="panel"><div class="panel__head">Readout (rolling 1s)</div>
+      <div id="readout" role="status" aria-live="polite">Drop or choose a clip&hellip;</div></div>
   </div>
 </div>
 <div class="foot">
-  <div class="panel"><div class="panel__head">Measurement &mdash; last drop, per level</div>
-    <table id="measure-table"><thead><tr><th>Level</th><th>Decode&rarr;painted</th><th>Recolour (per replacement)</th></tr></thead>
-      <tbody id="measure"></tbody></table>
-    <p class="note">"Recolour" replaces every row's values with the next frame of a two-frame colour-inverted
-      flip via <code>rows.queue()</code>, timed to the grid's own <code>render:done</code> &mdash; the number
-      the mp4 follow-on lives or dies on.</p>
-  </div>
+  <p class="note">Frames are sampled via <code>requestVideoFrameCallback</code> (falling back to
+    <code>requestAnimationFrame</code> where unsupported) and dropped &mdash; never queued &mdash; whenever the
+    grid hasn't finished painting the previous one, or the level's frame-rate cap hasn't elapsed yet: this page
+    reports the fps the grid actually achieves, not the cap. See <a href="README.md">README</a> for the numbers
+    this was tuned against.</p>
 </div>
 <footer>
-  Sample image: generated for this demo by Tocloco Inc (synthetic gradient + shapes), no external source, no
-  personal data. Lattice Grid <span id="version"></span> &middot; <a href="README.md">README</a> &middot;
-  <a href="video.html">Try the video version</a>.
+  Sample clip: generated for this demo by Tocloco Inc (synthetic bouncing colour-gradient blobs, rendered to a
+  canvas and recorded), no external source, no personal data. Lattice Grid <span id="version"></span> &middot;
+  <a href="README.md">README</a>.
 </footer>
 
-<div class="dropzone" id="dropzone" hidden><p>Drop a PNG or JPG anywhere on this page&hellip;</p></div>
-<input type="file" id="file-input" accept="image/png,image/jpeg" hidden>
+<div class="dropzone" id="dropzone" hidden><p>Drop an MP4 or WebM anywhere on this page&hellip;</p></div>
+<input type="file" id="file-input" accept="video/mp4,video/webm" hidden>
+<video id="src-video" muted playsinline hidden></video>
 
 <script>
   // Bound to toclocoinc.github.io; does nothing anywhere else. localhost never needs a key.
   LatticeGrid.setLicence('LG1.eyJ2IjoxLCJwIjoibGF0dGljZS1ncmlkIiwidCI6IlRPQ0xPQ08gSW5jIC0gcHVibGljIGRlbW9zIiwiZSI6IjIwMzAtMDEtMDEiLCJkIjpbInRvY2xvY29pbmMuZ2l0aHViLmlvIl19.9De42ua3aCGpiMB6EVRP7Tv-upUlDI-0T07rlSPzvCrsqg8t4YJi7SRnStEpAg48uzmcG7il1fR_TfwkUE7iCA');
 </script>
-<script type="module" src="app.js?v=20260930a-1568"></script>
+<script type="module" src="video.js?v=20260930a-1568"></script>
 </body>
 </html>
