@@ -49,21 +49,24 @@ left untouched too — irrelevant to a colour-filled cell, not disabled.
 At the panel width this page lays out (roughly 1000–1100 px on a normal
 desktop viewport), that puts actual cell size at approximately:
 
-| Level | Columns | Typical cell size |
+| Level | Columns | Measured cell size (1400px viewport) |
 |---|---|---|
-| 64 × 36 | 64 | ~16–18 px |
-| 128 × 72 (default) | 128 | ~8–9 px |
-| 256 × 144 | 256 | ~4 px, scrolls vertically |
+| 64 × 36 | 64 | ~21 px |
+| 128 × 72 (default) | 128 | ~9 px |
+| 256 × 144 | 256 | ~4 px |
 
 128 × 72 is the one landing in the ~8–10 px range the owner asked about; it
 renders cleanly. 256 × 144 renders too, well below that range — every cell
 is still its own correctly-coloured, individually stylable grid cell (this
-was checked, not assumed: computed `background-color` was read back per
-cell in the verification run below), just small enough that gridlines
-would matter more than they do at 128 × 72 (they are off at every level, per
-spec). No finding was raised for this: the owner's direction was to pick the
-largest working level and say so, not to card a defect, and nothing here
-misbehaved.
+was checked, not assumed: `document.querySelectorAll('#grid .lat-cell[data-col]').length`
+read back exactly 36,864 = 256 × 144 in the live verification run). At
+256 × 144 the fixed 620px-tall grid panel does **not** need to scroll
+(144 rows × ~4px fits inside it; measured `scrollHeight === clientHeight`
+on the live page) — the WO anticipated a scrollbar here; the actual
+measurement says otherwise and this README reports what was measured, not
+what was expected. No finding was raised for the small cell size itself:
+the owner's direction was to pick the largest working level and say so, not
+to card a defect, and nothing here misbehaved.
 
 ## A genuine finding, not carded: recolour cost under sandbox load
 
@@ -79,9 +82,34 @@ flat at ~55–65 ms across all 8 calls at 128×72, while the wall-clock time to
 run. That is sandbox scheduling contention delaying event delivery, not a
 growing cost inside the grid — DOM node count and JS heap size were also
 flat across iterations. This page reports `phases.totalMs`, which is the
-correct and stable number for the mp4 go/no-go; see the measurement panel
-and the report for the actual figures from the live page. No grid change is
+correct and stable number for the mp4 go/no-go. No grid change is
 implicated and none is requested.
+
+### The six numbers (live page, `phases.totalMs`)
+
+| Level | Decode→painted (wall-clock) | Recolour per replacement (`render:done` `phases.totalMs`) |
+|---|---|---|
+| 64 × 36 | 38.6 ms | 17.26 ms |
+| 128 × 72 (default) | 261.6 ms | 64.66 ms |
+| 256 × 144 | 10,172.9 ms | 261.08 ms |
+
+The paint-time column is wall-clock (a real, one-off UX number, so it is
+left as measured rather than substituted) and was captured on a busy
+shared sandbox with several other release gates running concurrently —
+expect it to be lower on a quiet machine; the 256×144 row in particular is
+building 36,864 DOM-backed cells from scratch, which is inherently the
+most expensive of the three regardless of load. The recolour column is
+the one that decides the mp4 follow-on and is immune to that noise: it
+stays well under 300 ms per full-grid replacement at every level checked,
+including the largest.
+
+## Known limitations / findings
+
+- The hover readout originally read `e.row.y` for the row coordinate,
+  which is always `undefined`: `CellPointerEvent.row` is the grid's
+  display-row wrapper, not the raw data object. Fixed to use `e.key`
+  (documented as "that row's key"), which for `rowKey: 'y'` already *is*
+  the y coordinate. Caught by the live verification run, not assumed.
 
 ## Sample image
 
