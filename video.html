@@ -34,6 +34,8 @@
   .panel__head { font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
                  color: var(--lattice-foreground-muted, #5b6570); padding: 5px 8px; border-bottom: 1px solid var(--line, #dfe3e6); }
   #grid { height: 620px; }
+  /* Edge-to-edge cells, no transitions: documented theme tokens (docs/THEMING.md). */
+  #grid.lattice, #grid .lattice { --lattice-cell-padding-x: 0px; --lattice-cell-padding-y: 0px; --lattice-border-width: 0px; --lattice-font-size: 0px; --lattice-line-height: 1; --lattice-transition: 0s; }
   .side { display: flex; flex-direction: column; gap: 8px; }
   #readout { padding: 8px; font: 12px ui-monospace, monospace; min-height: 5.5em; white-space: pre-line; }
   #readout.warn { color: #b45309; }
@@ -95,6 +97,6 @@
   // Bound to toclocoinc.github.io; does nothing anywhere else. localhost never needs a key.
   LatticeGrid.setLicence('LG1.eyJ2IjoxLCJwIjoibGF0dGljZS1ncmlkIiwidCI6IlRPQ0xPQ08gSW5jIC0gcHVibGljIGRlbW9zIiwiZSI6IjIwMzAtMDEtMDEiLCJkIjpbInRvY2xvY29pbmMuZ2l0aHViLmlvIl19.9De42ua3aCGpiMB6EVRP7Tv-upUlDI-0T07rlSPzvCrsqg8t4YJi7SRnStEpAg48uzmcG7il1fR_TfwkUE7iCA');
 </script>
-<script type="module" src="video.js?v=20260930a-1568"></script>
+<script type="module" src="video.js?v=20260930f-nowait"></script>
 </body>
 </html>

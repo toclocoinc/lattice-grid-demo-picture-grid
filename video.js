@@ -11,10 +11,14 @@ const LEVELS = [{ cols: 64, rows: 36, cap: 24 }, { cols: 128, rows: 72, cap: 12 
 const bg = () => getComputedStyle(document.body).backgroundColor || '#ffffff';
 const video = el('src-video');
 
-// pending: a rows.queue() is in flight (never queue a second one). frameTimes: timestamps of frames
-// actually applied, last 1s, for the rolling fps. lowSince: when the fps shortfall started, or null.
-// lastSampled: the cap's own clock. looping: an rVFC/rAF chain is armed (guards against a parallel one).
-let level = 0, grid = null, pending = false, dropped = 0, lastMs = 0, lowSince = null, lastSampled = 0, looping = false, frameTimes = [];
+// Every sampled frame is queued straight into the grid: its change model folds updates per row key and
+// paints them on the next animation frame, so a frame that lands before the previous one painted simply
+// overwrites the same rows (correct for video). Waiting for `render:done` before accepting the next frame
+// cost three to four screen refreshes per grid frame (15 fps against a 4 ms paint), so nothing waits now.
+// frameTimes: timestamps of paints the grid reported (`render:done`), last 1s, for the rolling fps.
+// lowSince: when the fps shortfall started, or null. lastSampled: the cap's own clock. looping: an
+// rVFC/rAF chain is armed (guards against a parallel one). dropped: frames the cap deliberately skipped.
+let level = 0, grid = null, dropped = 0, lastMs = 0, lowSince = null, lastSampled = 0, looping = false, frameTimes = [];
 let needsLoad = true; // next frame must be rows.load() (creates rows); set whenever ensureGrid reconfigures dimensions
 el('version').textContent = LatticeGrid.getVersion ? LatticeGrid.getVersion() : '';
 video.loop = true;
@@ -51,6 +55,8 @@ function ensureGrid(cols, size) {
     rowKey: 'y', rows: [], columns: toColumns(cols, size), rowHeight: size,
     showHeader: false, rowNumbers: false, gridLines: 'none', selection: 'none', filterRow: false, overscan: 4,
   });
+  // Every paint the grid reports counts as one achieved frame; its own phase timing is the ms/frame.
+  grid.on('render:done', (e) => { lastMs = e.phases.totalMs; frameTimes.push(performance.now()); });
 }
 
 /** Rolling-1s achieved fps from the timestamps of frames actually applied. */
@@ -73,14 +79,11 @@ function paintReadout(now) {
     (honest ? `\ngrid at ${achieved} fps, capped ${cap}` : '');
 }
 
-/** One sampled frame: downsample the video's current picture and push it, dropping rather than queueing. */
-function sampleFrame(now) {
+/** One sampled frame: downsample the video's current picture and queue it; the grid folds and paints on its next frame. */
+function sampleFrame() {
   const { cols, rows } = LEVELS[level];
-  if (pending || video.paused || video.ended) { if (pending) dropped++; return; }
+  if (video.paused || video.ended) return;
   const rowData = toRows(downsample(video, cols, rows, bg(), video.videoWidth, video.videoHeight));
-  pending = true;
-  const t0 = now;
-  grid.once('render:done', (e) => { pending = false; lastMs = e.phases.totalMs; frameTimes.push(t0); });
   if (needsLoad) { needsLoad = false; grid.rows.load(rowData); } else grid.rows.queue({ update: rowData });
 }
 
@@ -92,7 +95,7 @@ function onVideoFrame(now) {
   const interval = 1000 / LEVELS[level].cap;
   if (now - lastSampled < interval) { if (!video.paused) dropped++; return; }
   lastSampled = now;
-  sampleFrame(now);
+  sampleFrame();
 }
 
 /** Arm the sampling chain, once: a no-op if it (or its dormant rVFC registration) is already running. */
