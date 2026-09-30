@@ -2,7 +2,7 @@
 // created once and never destroyed: a drop, a level change and the recolour
 // benchmark below all go through rows.load()/rows.queue() on that same
 // instance, the path the mp4 follow-on will reuse for real video frames.
-import { decodeImage, downsample, fromHex, palette } from './image.js?v=20260930g-1800';
+import { decodeImage, downsample, fromHex, palette } from './image.js?v=20261001a-0009';
 
 const { createGrid } = LatticeGrid;
 const el = (id) => document.getElementById(id);
