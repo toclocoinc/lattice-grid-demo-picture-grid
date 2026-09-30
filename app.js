@@ -12,7 +12,6 @@ const bg = () => getComputedStyle(document.body).backgroundColor || '#ffffff';
 let level = 1; // 128 x 72 default
 let bitmap = null;
 let grid = null;
-
 el('version').textContent = LatticeGrid.getVersion ? LatticeGrid.getVersion() : '';
 
 /** Build one grid row per image row: `{ y, x0: '#hex', x1: '#hex', ... }`. */
@@ -48,7 +47,8 @@ function ensureGrid(cols, size) {
   });
   grid.on('cell:mouseover', (e) => {
     const { r, g, b } = fromHex(e.value);
-    el('readout').textContent = `${e.value} — rgb(${r}, ${g}, ${b}) — (${Number(e.colId.slice(1))}, ${e.row.y})`;
+    // e.key is the row's key (rowKey: 'y'), i.e. the y coordinate itself.
+    el('readout').textContent = `${e.value} — rgb(${r}, ${g}, ${b}) — (${Number(e.colId.slice(1))}, ${e.key})`;
   });
 }
 
