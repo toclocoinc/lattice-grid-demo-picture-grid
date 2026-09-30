@@ -140,15 +140,29 @@ async function openFile(file) {
     const tD = performance.now();
     bitmap = await decodeImage(file);
     log(`decoded "${file.name}": ${bitmap.width} × ${bitmap.height} px in ${(performance.now() - tD).toFixed(1)} ms`);
-    el('status').textContent = `"${file.name}": ${bitmap.width}×${bitmap.height}, measuring every level…`;
+    el('status').textContent = `"${file.name}": ${bitmap.width}×${bitmap.height}, painting ${LEVELS[level].cols} × ${LEVELS[level].rows}…`;
     stage = 'analyse + paint';
-    await measureAllLevels();
+    const { frame } = await renderLevel();
+    renderPalette(frame);
+    el('measure').innerHTML = '';
+    window.__demo = { grid, frame };
     el('status').textContent = `"${file.name}" — showing ${LEVELS[level].cols} × ${LEVELS[level].rows}.`;
     log(`done: "${file.name}" showing ${LEVELS[level].cols} × ${LEVELS[level].rows}`);
   } catch (err) {
     fail(stage, err);
   }
 }
+
+// The three-level benchmark is opt-in: it repaints every level and runs five
+// recolours each, which takes tens of seconds and would make a fresh drop look stuck.
+el('measure-btn').addEventListener('click', async () => {
+  if (!bitmap) return;
+  el('measure-btn').disabled = true;
+  el('status').textContent = 'Measuring every level (this takes a while; watch the console)…';
+  try { await measureAllLevels(); el('status').textContent = `Measured — showing ${LEVELS[level].cols} × ${LEVELS[level].rows}.`; }
+  catch (err) { fail('measure', err); }
+  el('measure-btn').disabled = false;
+});
 
 for (const [i, input] of [...document.querySelectorAll('[name=level]')].entries()) {
   input.addEventListener('change', async () => {
