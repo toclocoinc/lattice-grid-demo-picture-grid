@@ -14,6 +14,18 @@ let bitmap = null;
 let grid = null;
 el('version').textContent = LatticeGrid.getVersion ? LatticeGrid.getVersion() : '';
 
+// Console log of every stage, so a stall or a failure says where it happened.
+const T0 = performance.now();
+const log = (...args) => console.info(`[picture-grid +${((performance.now() - T0) / 1000).toFixed(2)}s]`, ...args);
+const fail = (stage, err) => {
+  console.error(`[picture-grid] FAILED at ${stage}:`, err);
+  el('status').textContent = `Failed at ${stage}: ${err && err.message ? err.message : err}`;
+};
+window.addEventListener('error', (e) => console.error('[picture-grid] window error:', e.message, e.filename, e.lineno));
+window.addEventListener('unhandledrejection', (e) => console.error('[picture-grid] unhandled rejection:', e.reason));
+log('script started; grid', LatticeGrid.getVersion ? LatticeGrid.getVersion() : '(version unknown)',
+  '| OffscreenCanvas', typeof OffscreenCanvas !== 'undefined', '| createImageBitmap', typeof createImageBitmap !== 'undefined');
+
 /** Build one grid row per image row: `{ y, x0: '#hex', x1: '#hex', ... }`. */
 function toRows(frame) {
   return frame.map((line, y) => {
@@ -71,12 +83,16 @@ function timedApply(rows) {
 async function renderLevel() {
   const { cols, rows } = LEVELS[level];
   const size = cellSize();
+  const tD = performance.now();
   const frame = downsample(bitmap, cols, rows, bg());
+  log(`analysed picture at ${cols} × ${rows}: ${(performance.now() - tD).toFixed(1)} ms, cell size ${size} px, top-left ${frame[0][0]}`);
   const rowData = toRows(frame);
   ensureGrid(cols, size);
   const t0 = performance.now();
   await new Promise((resolve) => { grid.once('render:done', resolve); grid.rows.load(rowData); });
-  return { ms: performance.now() - t0, frame };
+  const ms = performance.now() - t0;
+  log(`grid painted ${cols} × ${rows} = ${cols * rows} cells in ${ms.toFixed(1)} ms`);
+  return { ms, frame };
 }
 
 /** Steady-state recolour cost: flip between a frame and its colour inverse. */
@@ -88,6 +104,7 @@ async function measureRecolour(frame, iterations = 5) {
   })));
   let total = 0;
   for (let i = 0; i < iterations; i++) total += await timedApply(i % 2 === 0 ? rowsB : rowsA);
+  log(`recolour benchmark: ${(total / iterations).toFixed(2)} ms per full replacement (${iterations} runs)`);
   return total / iterations;
 }
 
@@ -100,6 +117,7 @@ function renderPalette(frame) {
 async function measureAllLevels() {
   const results = [];
   const chosen = level;
+  log('measuring all three levels (paints each once and benchmarks the recolour; the 256 × 144 pass takes several seconds)…');
   for (let i = 0; i < LEVELS.length; i++) {
     level = i;
     const { ms, frame } = await renderLevel();
@@ -110,21 +128,33 @@ async function measureAllLevels() {
   const { frame } = await renderLevel();
   renderPalette(frame);
   el('measure').innerHTML = results.map((r) => `<tr><td>${r.level}</td><td>${r.paint} ms</td><td>${r.recolour} ms</td></tr>`).join('');
+  log('measurements done', results);
   window.__demo = { grid, results, frame };
 }
 
 async function openFile(file) {
+  log(`file received: "${file.name}" (${file.type || 'no type'}, ${(file.size / 1024).toFixed(0)} KB)`);
   el('status').textContent = `Decoding "${file.name}"…`;
-  bitmap = await decodeImage(file);
-  el('status').textContent = `"${file.name}": ${bitmap.width}×${bitmap.height}, measuring every level…`;
-  await measureAllLevels();
-  el('status').textContent = `"${file.name}" — showing ${LEVELS[level].cols} × ${LEVELS[level].rows}.`;
+  let stage = 'decode';
+  try {
+    const tD = performance.now();
+    bitmap = await decodeImage(file);
+    log(`decoded "${file.name}": ${bitmap.width} × ${bitmap.height} px in ${(performance.now() - tD).toFixed(1)} ms`);
+    el('status').textContent = `"${file.name}": ${bitmap.width}×${bitmap.height}, measuring every level…`;
+    stage = 'analyse + paint';
+    await measureAllLevels();
+    el('status').textContent = `"${file.name}" — showing ${LEVELS[level].cols} × ${LEVELS[level].rows}.`;
+    log(`done: "${file.name}" showing ${LEVELS[level].cols} × ${LEVELS[level].rows}`);
+  } catch (err) {
+    fail(stage, err);
+  }
 }
 
 for (const [i, input] of [...document.querySelectorAll('[name=level]')].entries()) {
   input.addEventListener('change', async () => {
     if (!input.checked || !bitmap) return;
     level = i;
+    log(`level changed to ${LEVELS[i].cols} × ${LEVELS[i].rows}`);
     const { frame } = await renderLevel();
     renderPalette(frame);
   });
@@ -146,4 +176,8 @@ el('pick').addEventListener('click', () => el('file-input').click());
 el('file-input').addEventListener('change', (e) => { if (e.target.files[0]) openFile(e.target.files[0]); });
 el('grid').addEventListener('mouseleave', () => { el('readout').textContent = 'Hover a cell…'; });
 
-fetch('sample.jpg').then((r) => r.blob()).then((b) => openFile(new File([b], 'sample.jpg', { type: 'image/jpeg' })));
+log('fetching sample.jpg…');
+fetch('sample.jpg')
+  .then((r) => { log(`sample.jpg fetched: HTTP ${r.status}`); return r.blob(); })
+  .then((b) => openFile(new File([b], 'sample.jpg', { type: 'image/jpeg' })))
+  .catch((err) => fail('fetch sample.jpg', err));
