@@ -3,7 +3,7 @@
 // One grid is created once and never destroyed: every sampled frame goes
 // through the same `rows.queue()` path the picture grid's recolour
 // benchmark used, never `createGrid` again.
-import { downsample } from './image.js?v=20261003b-0009';
+import { downsample } from './image.js?v=20261003c-0009';
 
 const { createGrid } = LatticeGrid;
 const el = (id) => document.getElementById(id);
