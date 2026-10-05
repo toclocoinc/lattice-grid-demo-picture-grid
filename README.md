@@ -1,6 +1,6 @@
 # Picture grid
 
-A [Lattice Grid](https://latticegrid.dev) demo: drop a PNG or JPG and the grid
+A [Lattice Grid](https://www.latticegrid.dev) demo: drop a PNG or JPG and the grid
 recreates it from nothing but each cell's own background colour &mdash; one
 row per image row, one column per pixel column. Decoding and downsampling
 happen entirely in this tab (`createImageBitmap` + `OffscreenCanvas`);

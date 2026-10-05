@@ -12,10 +12,10 @@
   // Where the library comes from. `false` loads the published release from the CDN;
   // `true` loads a local build from vendor/ instead (not part of this repository).
   const LOCAL = false;
-  const LIB = LOCAL ? 'vendor/' : 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.86.4/';
+  const LIB = LOCAL ? 'vendor/' : 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.86.7/';
   document.write('<link rel="stylesheet" href="' + LIB + 'lattice-grid.min.css">');
   for (const file of ['lattice-grid.min.js']) {
-    document.write('<script src="' + LIB + file + '?v=20261003u"><' + '/script>');
+    document.write('<script src="' + LIB + file + '?v=20261005a"><' + '/script>');
   }
 </script>
 <style>
@@ -88,7 +88,7 @@
 </div>
 <footer>
   Sample image: generated for this demo by Tocloco Inc (synthetic gradient + shapes), no external source, no
-  personal data. Lattice Grid <span id="version"></span> &middot; <a href="README.md">README</a> &middot;
+  personal data. Built with <a href="https://www.latticegrid.dev/">Lattice Grid</a> <span id="version"></span> &middot; <a href="README.md">README</a> &middot;
   <a href="video.html">Try the video version</a>.
 </footer>
 
@@ -99,6 +99,6 @@
   // Bound to toclocoinc.github.io; does nothing anywhere else. localhost never needs a key.
   LatticeGrid.setLicence('LG1.eyJ2IjoxLCJwIjoibGF0dGljZS1ncmlkIiwidCI6IlRPQ0xPQ08gSW5jIC0gcHVibGljIGRlbW9zIiwiZSI6IjIwMzAtMDEtMDEiLCJkIjpbInRvY2xvY29pbmMuZ2l0aHViLmlvIl19.9De42ua3aCGpiMB6EVRP7Tv-upUlDI-0T07rlSPzvCrsqg8t4YJi7SRnStEpAg48uzmcG7il1fR_TfwkUE7iCA');
 </script>
-<script type="module" src="app.js?v=20261003u"></script>
+<script type="module" src="app.js?v=20261005a"></script>
 </body>
 </html>
